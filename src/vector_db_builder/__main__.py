@@ -1,11 +1,16 @@
 import argparse
-from pathlib import Path
+import configparser
+import logging
+import os
+import sys
 
 import pandas as pd
-import configparser
 
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
+
+logger = logging.getLogger(__name__)
 
 config = configparser.ConfigParser()
 config_path = Path(__file__).resolve().parent.parent / "watch_rag.properties"
@@ -17,6 +22,25 @@ BATCH_SIZE = config.getint("VectorDB", "collection.insert.batch.size")
 COLLECTION_NAME = config.get("VectorDB", "collection.name")
 QDRANT_URL = config.get("VectorDB", "qdrant.url")
 MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
+LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
+
+
+def configure_logging() -> None:
+    raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
+    if raw_level is None or not raw_level.strip():
+        raw_level = config.get("Logging", "level")
+    level_name = raw_level.strip().upper()
+    level = getattr(logging, level_name, None)
+    if not isinstance(level, int):
+        raise ValueError(
+            f"Invalid log level '{raw_level}'. "
+            f"Set Logging.level or {LOG_LEVEL_ENV_VAR} to DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+        )
+    logging.basicConfig(
+        level=level,
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
 
 def get_dataframe(csv_path: str) -> pd.DataFrame:
     data_frame = pd.read_csv(csv_path, sep=';')
@@ -45,16 +69,16 @@ def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
 def main(csv_path: str) -> None:
     client = QdrantClient(url=QDRANT_URL)
     try:
-        print(f"Qdrant is ready (collections: {len(client.get_collections().collections)}).")
+        logger.info(f"Qdrant is ready (collections: {len(client.get_collections().collections)}).")
 
-        print(f"Loading watch data from CSV file: {csv_path}")
+        logger.info(f"Loading watch data from CSV file: {csv_path}")
         data_frame = get_dataframe(csv_path)
-        print(f"Loaded {len(data_frame)} watch specifications. Creating vector representations...")
+        logger.info(f"Loaded {len(data_frame)} watch specifications. Creating vector representations...")
         vectors = create_vectors(data_frame)
-        print(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{COLLECTION_NAME}'...")
+        logger.info(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{COLLECTION_NAME}'...")
 
 
-        print(f"Creating collection '{COLLECTION_NAME}' in Qdrant...")
+        logger.info(f"Creating collection '{COLLECTION_NAME}' in Qdrant...")
         if client.collection_exists(collection_name=COLLECTION_NAME):
             client.delete_collection(collection_name=COLLECTION_NAME)
         client.create_collection(
@@ -63,7 +87,7 @@ def main(csv_path: str) -> None:
         )
 
 
-        print(f"Storing {len(vectors)} vectors in Qdrant collection '{COLLECTION_NAME}'...")
+        logger.info(f"Storing {len(vectors)} vectors in Qdrant collection '{COLLECTION_NAME}'...")
         points = []
         for vector_idx, (idx, row) in enumerate(data_frame.iterrows()):
             payload = row.to_dict()
@@ -75,16 +99,17 @@ def main(csv_path: str) -> None:
                 )
             )
 
-        print(f"Upserting {len(points)} points into Qdrant collection '{COLLECTION_NAME}'...")
+        logger.info(f"Upserting {len(points)} points into Qdrant collection '{COLLECTION_NAME}'...")
         total_points = len(points)
 
         for i in range(0, total_points, BATCH_SIZE):
             batch = points[i:i + BATCH_SIZE]
+            logger.debug(f"Upserting batch {i // BATCH_SIZE + 1} of {((total_points - 1) // BATCH_SIZE) + 1} (size: {len(batch)})...")
             client.upsert(
                 collection_name=COLLECTION_NAME,
                 points=batch
             )
-        print(f"Successfully stored {len(points)} points in Qdrant collection '{COLLECTION_NAME}'.")
+        logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{COLLECTION_NAME}'.")
     finally:
         client.close()
 
@@ -92,4 +117,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load watch data from a CSV file.")
     parser.add_argument("csv_path", help="Path to the watch data CSV file.")
     args = parser.parse_args()
+    configure_logging()
     main(args.csv_path)
