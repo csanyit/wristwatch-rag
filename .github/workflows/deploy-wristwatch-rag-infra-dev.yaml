@@ -57,6 +57,31 @@ jobs:
             --environment "$INPUT_ENVIRONMENT" \
             --module "$INPUT_MODULE"
 
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.0
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        env:
+          TERRAGRUNT_VERSION: 1.2.1
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64" \
+            --output "$RUNNER_TEMP/terragrunt"
+
+          if ! printf '%s  %s\n' \
+            "f2f6238ad2348855a4e876b90fd31f3f5d106bb234794202a00b2bcc139fa753" \
+            "$RUNNER_TEMP/terragrunt" | sha256sum --check --status; then
+            echo "::error::Terragrunt checksum verification failed"
+            exit 1
+          fi
+
+          chmod +x "$RUNNER_TEMP/terragrunt"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -65,19 +90,22 @@ jobs:
           role-session-name: GitHubActions-${{ github.run_id }}
 
       - name: Terragrunt init
-        uses: gruntwork-io/terragrunt-action@v2
-        with:
-          tg_version: 1.2.1
-          tf_version: 1.12.0
-          tg_dir: ${{ steps.selection.outputs.directory }}
-          tg_command: init
-          tg_add_approve: "1"
+        working-directory: ${{ steps.selection.outputs.directory }}
+        run: terragrunt init
 
       - name: Run selected Terragrunt action
-        uses: gruntwork-io/terragrunt-action@v2
-        with:
-          tg_version: 1.2.1
-          tf_version: 1.12.0
-          tg_dir: ${{ steps.selection.outputs.directory }}
-          tg_command: ${{ steps.selection.outputs.terragrunt_command }}
-          tg_add_approve: "1"
+        working-directory: ${{ steps.selection.outputs.directory }}
+        env:
+          TG_COMMAND: ${{ steps.selection.outputs.terragrunt_command }}
+          TG_NON_INTERACTIVE: "true"
+          TF_INPUT: "false"
+          TF_IN_AUTOMATION: "1"
+        run: |
+          set -euo pipefail
+          read -r -a tg_args <<< "$TG_COMMAND"
+
+          if [[ "${tg_args[0]}" == "apply" ]]; then
+            tg_args=("${tg_args[0]}" -auto-approve "${tg_args[@]:1}")
+          fi
+
+          terragrunt "${tg_args[@]}"
