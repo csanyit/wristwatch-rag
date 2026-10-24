@@ -1,0 +1,21 @@
+locals {
+  aws_region  = "eu-central-1"
+  environment = "dev"
+
+  name = "rag_query"
+
+  artifact = {
+    s3_key    = "rag_query/rag_query.zip"
+    runtime   = "python3.12"
+    handler   = "rag_query.lambda_handler.handler"
+  }
+
+  execution = {
+    memory_size            = 2048
+    timeout                = 600
+    ephemeral_storage_size = 1024
+  }
+
+  log_level                   = "INFO"
+  log_group_retention_in_days = 7
+}

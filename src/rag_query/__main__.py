@@ -26,7 +26,7 @@ OLLAMA_MODEL_NAME = config.get("LLM", "ollama.model.name")
 LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
 
 
-def configure_logging() -> None:
+def get_log_level() -> int:
     raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
     if raw_level is None or not raw_level.strip():
         raw_level = config.get("Logging", "level")
@@ -37,8 +37,12 @@ def configure_logging() -> None:
             f"Invalid log level '{raw_level}'. "
             f"Set Logging.level or {LOG_LEVEL_ENV_VAR} to DEBUG, INFO, WARNING, ERROR, or CRITICAL."
         )
+    return level
+
+
+def configure_logging() -> None:
     logging.basicConfig(
-        level=level,
+        level=get_log_level(),
         stream=sys.stdout,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
@@ -121,15 +125,19 @@ def infer_with_llm(prompt: str) -> str:
     raise RuntimeError(f"Ollama model '{OLLAMA_MODEL_NAME}' returned an empty response.")
 
 
-def main(query_text: str, brand: str, family: str) -> None:
+def rag_query(query_text: str, brand: str, family: str) -> str:
     vector_db_results = query_in_vector_db(query_text, brand, family)
 
     for point in vector_db_results:
-            logger.debug(f"Brand: {point.payload.get('Brand')}, Family: {point.payload.get('Family')}, Name: {point.payload.get('Name')}, Reference: {point.payload.get('Reference')}")
+        logger.debug(f"Brand: {point.payload.get('Brand')}, Family: {point.payload.get('Family')}, Name: {point.payload.get('Name')}, Reference: {point.payload.get('Reference')}")
 
     rag_prompt = embed_result_in_prompt(query_text, vector_db_results)
     logger.debug(f"RAG Prompt:\n{rag_prompt}\n")
-    llm_response = infer_with_llm(rag_prompt)
+    return infer_with_llm(rag_prompt)
+
+
+def main(query_text: str, brand: str, family: str) -> None:
+    llm_response = rag_query(query_text, brand, family)
     print(f"LLM Response:\n{llm_response}\n")
 
 if __name__ == "__main__":

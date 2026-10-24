@@ -25,7 +25,7 @@ MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
 LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
 
 
-def configure_logging() -> None:
+def get_log_level() -> int:
     raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
     if raw_level is None or not raw_level.strip():
         raw_level = config.get("Logging", "level")
@@ -36,8 +36,12 @@ def configure_logging() -> None:
             f"Invalid log level '{raw_level}'. "
             f"Set Logging.level or {LOG_LEVEL_ENV_VAR} to DEBUG, INFO, WARNING, ERROR, or CRITICAL."
         )
+    return level
+
+
+def configure_logging() -> None:
     logging.basicConfig(
-        level=level,
+        level=get_log_level(),
         stream=sys.stdout,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
@@ -66,7 +70,7 @@ def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
     watch_specifications = data_frame.apply(create_text_representation, axis=1).tolist()
     return encoder.encode(watch_specifications, show_progress_bar=True)
 
-def main(csv_path: str) -> None:
+def build_vector_db(csv_path: str) -> int:
     client = QdrantClient(url=QDRANT_URL)
     try:
         logger.info(f"Qdrant is ready (collections: {len(client.get_collections().collections)}).")
@@ -110,6 +114,7 @@ def main(csv_path: str) -> None:
                 points=batch
             )
         logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{COLLECTION_NAME}'.")
+        return total_points
     finally:
         client.close()
 
@@ -118,4 +123,4 @@ if __name__ == "__main__":
     parser.add_argument("csv_path", help="Path to the watch data CSV file.")
     args = parser.parse_args()
     configure_logging()
-    main(args.csv_path)
+    build_vector_db(args.csv_path)

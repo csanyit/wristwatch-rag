@@ -1,0 +1,18 @@
+locals {
+  aws_region  = "eu-central-1"
+  environment = "dev"
+
+  name      = "watch-specification-source-data-${local.environment}"
+  namespace = "global"
+
+  force_destroy      = false
+  versioning_enabled = true
+
+  encryption = {
+    sse_algorithm     = "AES256"
+    kms_master_key_id = null
+  }
+
+  access_log_enabled                = false
+  identity_based_policies_creatable = false
+}
