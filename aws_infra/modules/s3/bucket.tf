@@ -2,10 +2,6 @@
 # BUCKET
 # -------------------------------------------------------------------
 resource "aws_s3_bucket" "content" {
-  # checkov:skip=CKV_AWS_144: "Ensure that S3 bucket has cross-region replication enabled"
-  # checkov:skip=CKV2_AWS_62: "Ensure S3 buckets should have event notifications enabled"
-  # checkov:skip=CKV_AWS_145: "Ensure that S3 buckets are encrypted with KMS by default"
-  # checkov:skip=CKV_AWS_21: "Ensure all data stored in the S3 bucket have versioning enabled"
   bucket        = var.use_prefix ? null : local.content_bucket_name
   bucket_prefix = var.use_prefix ? local.content_bucket_name : null
 
@@ -190,37 +186,6 @@ resource "aws_s3_bucket_acl" "this" {
   ]
 }
 
-resource "aws_s3_bucket_logging" "content" {
-  bucket = aws_s3_bucket.content.id
-
-  target_bucket = try(var.access_log_configuration.target_bucket, null) == null ? aws_s3_bucket.access_log.id : var.access_log_configuration.target_bucket
-  target_prefix = try(var.access_log_configuration.target_prefix, "log/")
-
-  dynamic "target_object_key_format" {
-    for_each = try([var.access_log_configuration.target_object_key_format], [])
-
-    content {
-      dynamic "partitioned_prefix" {
-        for_each = try(target_object_key_format.value["partitioned_prefix"], [])
-
-        content {
-          partition_date_source = try(partitioned_prefix.value.partition_date_source, null)
-        }
-      }
-
-      dynamic "simple_prefix" {
-        for_each = try(target_object_key_format.value.simple_prefix, false) ? [true] : []
-
-        content {}
-      }
-    }
-  }
-
-  lifecycle {
-    enabled = var.access_log_enabled
-  }
-}
-
 resource "aws_s3_bucket_object_lock_configuration" "content" {
   count = var.object_lock_configuration.enabled ? 1 : 0
 
@@ -273,8 +238,6 @@ resource "aws_s3_bucket_cors_configuration" "this" {
 # MANAGEMENT
 # -------------------------------------------------------------------
 resource "aws_s3_bucket_lifecycle_configuration" "content_rules" {
-  # checkov:skip=CKV_AWS_300: "Ensure S3 lifecycle configuration sets period for aborting failed uploads"
-  # One configuration per bucket: S3 keeps a single lifecycle configuration that holds all rules.
   count = length(local.lifecycle_rules) > 0 ? 1 : 0
 
   bucket                                 = aws_s3_bucket.content.id

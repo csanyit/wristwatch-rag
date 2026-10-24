@@ -3,11 +3,6 @@ output "content_bucket" {
   value       = aws_s3_bucket.content
 }
 
-output "access_log_bucket" {
-  description = "The S3 bucket used for storing access logs of this bucket."
-  value       = aws_s3_bucket.access_log
-}
-
 output "bucket_policies" {
   description = "Access control information including policy statements and ARNs"
   value = {

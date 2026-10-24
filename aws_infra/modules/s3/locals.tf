@@ -6,7 +6,6 @@ locals {
   bucket_name_suffix = var.namespace == "global" ? "" : format("-%s-%s-an", data.aws_caller_identity.current.account_id, data.aws_region.current.region)
 
   content_bucket_name    = "${var.name}${local.bucket_name_suffix}"
-  access_log_bucket_name = "${var.name}-access-log${local.bucket_name_suffix}"
   read_only_policy_name  = "${var.name}-read-only"
   read_write_policy_name = "${var.name}-read-write"
 
@@ -49,9 +48,6 @@ locals {
   lifecycle_rules      = try(jsondecode(var.lifecycle_rule_configuration), var.lifecycle_rule_configuration)
   intelligent_tiering  = try(jsondecode(var.intelligent_tiering_configuration), var.intelligent_tiering_configuration)
   metric_configuration = try(jsondecode(var.metric_configuration), var.metric_configuration)
-
-  # Access Log (Variables with type `any` should be jsonencode()'d when value is coming from Terragrunt)
-  access_log_lifecycle_rules = try(jsondecode(var.access_log_lifecycle_rule_configuration), var.access_log_lifecycle_rule_configuration)
 
   # -------------------------------------------------------------------
   # PERMISSION

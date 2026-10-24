@@ -89,17 +89,6 @@ variable "tags" {
   default     = {}
 }
 
-variable "access_log_enabled" {
-  description = "Creates an additional bucket for access logs."
-  type        = bool
-  default     = false
-}
-
-variable "access_log_tags" {
-  description = "Additional access log bucket tags."
-  type        = map(string)
-  default     = {}
-}
 
 # -------------------------------------------------------------------
 # METADATA
@@ -560,107 +549,6 @@ variable "lifecycle_rule_transition_default_minimum_object_size" {
   }
 }
 
-variable "access_log_configuration" {
-  description = "S3 bucket logging configuration for access logs."
-  type = object({
-    target_bucket = string
-    target_prefix = optional(string, "log/")
-    target_object_key_format = optional(object({
-      partitioned_prefix = optional(object({
-        partition_date_source = string
-      }))
-      simple_prefix = optional(bool)
-    }))
-  })
-  default = null
-}
-
-variable "access_log_lifecycle_rule_configuration" {
-  description = "Map of lifecycle rules for S3 bucket object lifecycle management. Key is the rule name/identifier."
-  type = map(object({
-    enabled                                = optional(bool, true)
-    id                                     = optional(string)
-    status                                 = optional(string)
-    abort_incomplete_multipart_upload_days = optional(number, 7)
-
-    # Expiration configuration
-    expiration = optional(object({
-      date                         = optional(string)
-      days                         = optional(number)
-      expired_object_delete_marker = optional(bool)
-    }))
-
-    # Transition configuration (multiple storage class transitions)
-    transition = optional(list(object({
-      date          = optional(string)
-      days          = optional(number)
-      storage_class = string
-    })))
-
-    # Noncurrent version expiration
-    noncurrent_version_expiration = optional(object({
-      newer_noncurrent_versions = optional(number)
-      days                      = optional(number)
-      noncurrent_days           = optional(number)
-    }))
-
-    # Noncurrent version transitions (multiple storage class transitions)
-    noncurrent_version_transition = optional(list(object({
-      newer_noncurrent_versions = optional(number)
-      days                      = optional(number)
-      noncurrent_days           = optional(number)
-      storage_class             = string
-    })))
-
-    # Filter configuration
-    filter = optional(object({
-      prefix                   = optional(string)
-      object_size_greater_than = optional(number)
-      object_size_less_than    = optional(number)
-      tags                     = optional(map(string))
-      tag = optional(list(object({
-        key   = string
-        value = string
-      })))
-    }))
-  }))
-  default = {
-    "default" = {
-      id                                     = "auto-archive"
-      abort_incomplete_multipart_upload_days = 7
-
-      transition = [
-        {
-          days          = 30
-          storage_class = "STANDARD_IA"
-        },
-        {
-          days          = 90
-          storage_class = "GLACIER"
-        },
-        {
-          days          = 730
-          storage_class = "DEEP_ARCHIVE"
-        }
-      ]
-    }
-  }
-}
-
-variable "access_log_lifecycle_rule_transition_default_minimum_object_size" {
-  description = "The default minimum object size behavior applied to the lifecycle configuration. Valid values: all_storage_classes_128K (default), varies_by_storage_class"
-  type        = string
-  default     = null
-
-  validation {
-    condition = var.access_log_lifecycle_rule_transition_default_minimum_object_size == null || (
-      var.access_log_lifecycle_rule_transition_default_minimum_object_size == "all_storage_classes_128K" ||
-      var.access_log_lifecycle_rule_transition_default_minimum_object_size == "varies_by_storage_class"
-    )
-    error_message = "Valid values are 'all_storage_classes_128K' or 'varies_by_storage_class'."
-  }
-}
-
 # -------------------------------------------------------------------
 # POLICIES [PERMISSIONS - CONTENT]
 # -------------------------------------------------------------------
@@ -772,62 +660,6 @@ variable "block_public_access_restrict_public_buckets" {
 }
 
 # -------------------------------------------------------------------
-# POLICIES [PERMISSIONS - ACCESS LOG]
-# -------------------------------------------------------------------
-
-# Conditions
-
-variable "access_log_attach_policy" {
-  description = "Controls if S3 bucket should have bucket policy attached (set to `true` to use value of `policy` as bucket policy)"
-  type        = bool
-  default     = true
-}
-
-variable "access_log_attach_deny_insecure_transport_policy" {
-  description = "Controls if S3 bucket should have deny non-SSL transport policy attached"
-  type        = bool
-  default     = true
-}
-
-variable "access_log_attach_require_latest_tls_policy" {
-  description = "Controls if S3 bucket should require the latest version of TLS"
-  type        = bool
-  default     = false
-}
-
-variable "access_log_attach_deny_incorrect_encryption_headers" {
-  description = "Controls if S3 bucket should deny incorrect encryption headers policy attached."
-  type        = bool
-  default     = false
-}
-
-variable "access_log_attach_deny_incorrect_kms_key_sse" {
-  description = "Controls if S3 bucket policy should deny usage of incorrect KMS key SSE."
-  type        = bool
-  default     = false
-}
-
-variable "access_log_attach_deny_unencrypted_object_uploads" {
-  description = "Controls if S3 bucket should deny unencrypted object uploads policy attached."
-  type        = bool
-  default     = false
-}
-
-variable "access_log_attach_deny_ssec_encrypted_object_uploads" {
-  description = "Controls if S3 bucket should deny SSEC encrypted object uploads."
-  type        = bool
-  default     = false
-}
-
-# Configurations
-
-variable "access_log_policy" {
-  description = "(Optional) A valid bucket policy JSON document. Note that if the policy document is not specific enough (but still valid), Terraform may view the policy as constantly changing in a terraform plan. In this case, please make sure you use the verbose/specific version of the policy. For more information about building AWS IAM policy documents with Terraform, see the AWS IAM Policy Document Guide."
-  type        = string
-  default     = null
-}
-
-# -------------------------------------------------------------------
 # POLICIES [SERVICE LOG DELIVERY]
 # -------------------------------------------------------------------
 
@@ -885,24 +717,6 @@ variable "cloudtrail_log_delivery_policy_source_organizations" {
 
 variable "lb_log_delivery_policy_source_organizations" {
   description = "(Optional) List of AWS Organization IDs should be allowed to deliver ALB/NLB logs to this bucket."
-  type        = list(string)
-  default     = []
-}
-
-variable "access_log_delivery_policy_source_buckets" {
-  description = "(Optional) List of S3 bucket ARNs which should be allowed to deliver access logs to this bucket."
-  type        = list(string)
-  default     = []
-}
-
-variable "access_log_delivery_policy_source_accounts" {
-  description = "(Optional) List of AWS Account IDs should be allowed to deliver access logs to this bucket."
-  type        = list(string)
-  default     = []
-}
-
-variable "access_log_delivery_policy_source_organizations" {
-  description = "(Optional) List of AWS Organization IDs should be allowed to deliver access logs to this bucket."
   type        = list(string)
   default     = []
 }

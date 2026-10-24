@@ -13,11 +13,3 @@ removed {
     destroy = false
   }
 }
-
-removed {
-  from = aws_s3_bucket_lifecycle_configuration.access_log
-
-  lifecycle {
-    destroy = false
-  }
-}

@@ -21,8 +21,9 @@ dependency "lambda_bucket" {
 
   mock_outputs = {
     content_bucket = {
-      arn    = "arn:aws:s3:::mock-lambda-bucket"
-      bucket = "mock-bucket"
+      arn               = "arn:aws:s3:::mock-lambda-bucket"
+      bucket            = "mock-bucket"
+      s3_object_version = "mock-version"
     }
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
@@ -38,6 +39,10 @@ inputs = {
     runtime       = local.config.artifact.runtime
     s3_bucket     = dependency.lambda_bucket.outputs.content_bucket.bucket
     s3_key        = local.config.artifact.s3_key
+    s3_object_version = try(
+      dependency.lambda_bucket.outputs.content_bucket.s3_object_version,
+      null,
+    )
     layers        = []
   }
 

@@ -26,7 +26,6 @@ inputs = {
   sse_algorithm     = local.config.encryption.sse_algorithm
   kms_master_key_id = local.config.encryption.kms_master_key_id
 
-  access_log_enabled                = local.config.access_log_enabled
   identity_based_policies_creatable = local.config.identity_based_policies_creatable
 
   tags = {

@@ -13,6 +13,5 @@ locals {
     kms_master_key_id = null
   }
 
-  access_log_enabled                = false
   identity_based_policies_creatable = false
 }
