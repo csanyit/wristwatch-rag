@@ -1,0 +1,83 @@
+name: Deploy wristwatch RAG infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Terragrunt action to run
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy-plan
+          - destroy-apply
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      module:
+        description: Terragrunt module
+        required: true
+        type: choice
+        options:
+          - lambda_code_bucket
+          - rag_query_lambda
+          - vector_db_builder_lambda
+          - watch_specification_files_bucket
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Terragrunt ${{ inputs.action }} (${{ inputs.environment }}/${{ inputs.module }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate inputs and select module directory
+        id: selection
+        env:
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_MODULE: ${{ inputs.module }}
+        run: |
+          python3 .github/scripts/deploy-selection-validation.py \
+            --action "$INPUT_ACTION" \
+            --environment "$INPUT_ENVIRONMENT" \
+            --module "$INPUT_MODULE"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Terragrunt init
+        uses: gruntwork-io/terragrunt-action@v2
+        with:
+          tg_version: 0.77.22
+          tf_version: 1.9.8
+          tg_dir: ${{ steps.selection.outputs.directory }}
+          tg_command: init
+          tg_add_approve: "1"
+
+      - name: Run selected Terragrunt action
+        uses: gruntwork-io/terragrunt-action@v2
+        with:
+          tg_version: 0.77.22
+          tf_version: 1.9.8
+          tg_dir: ${{ steps.selection.outputs.directory }}
+          tg_command: ${{ steps.selection.outputs.terragrunt_command }}
+          tg_add_approve: "1"
