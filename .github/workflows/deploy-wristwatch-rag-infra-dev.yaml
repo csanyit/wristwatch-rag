@@ -67,8 +67,8 @@ jobs:
       - name: Terragrunt init
         uses: gruntwork-io/terragrunt-action@v2
         with:
-          tg_version: 0.77.22
-          tf_version: 1.9.8
+          tg_version: 1.2.1
+          tf_version: 1.11.5
           tg_dir: ${{ steps.selection.outputs.directory }}
           tg_command: init
           tg_add_approve: "1"
@@ -76,8 +76,8 @@ jobs:
       - name: Run selected Terragrunt action
         uses: gruntwork-io/terragrunt-action@v2
         with:
-          tg_version: 0.77.22
-          tf_version: 1.9.8
+          tg_version: 1.2.1
+          tf_version: 1.11.5
           tg_dir: ${{ steps.selection.outputs.directory }}
           tg_command: ${{ steps.selection.outputs.terragrunt_command }}
           tg_add_approve: "1"
