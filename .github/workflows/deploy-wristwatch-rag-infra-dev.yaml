@@ -91,7 +91,7 @@ jobs:
 
       - name: Terragrunt init
         working-directory: ${{ steps.selection.outputs.directory }}
-        run: terragrunt init
+        run: terragrunt init --backend-bootstrap
 
       - name: Run selected Terragrunt action
         working-directory: ${{ steps.selection.outputs.directory }}

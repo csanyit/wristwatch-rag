@@ -2,7 +2,7 @@ locals {
   aws_region  = "eu-central-1"
   environment = "dev"
 
-  name = "rag_query"
+  name = "rag_query-${local.environment}"
 
   artifact = {
     s3_key    = "rag_query/rag_query.zip"
