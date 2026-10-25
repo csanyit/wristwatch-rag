@@ -8,6 +8,7 @@ REGION_DIRECTORIES = {"eu-west-1": "eu-west-1"}
 MODULES = (
     "lambda_code_bucket",
     "rag_query_lambda",
+    "vector_db_bucket",
     "vector_db_builder_lambda",
     "watch_specification_files_bucket",
 )
