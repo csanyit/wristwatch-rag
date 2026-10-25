@@ -96,6 +96,14 @@ inputs = {
         dependency.vector_db_bucket.outputs.vector_index_arns["watch-rag-db"],
       ]
     }
+    invoke_bedrock_model = {
+      actions = [
+        "bedrock:InvokeModel",
+      ]
+      resources = [
+        "arn:aws:bedrock:eu-west-1::foundation-model/mistral.mistral-7b-instruct-v0:2",
+      ]
+    }
   }
 
 }
