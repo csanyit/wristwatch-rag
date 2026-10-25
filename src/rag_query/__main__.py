@@ -4,10 +4,9 @@ import logging
 import os
 import sys
 
-from ollama import Client
 from pathlib import Path
 
-from watch_rag_providers import create_embedder, create_vector_store, SearchHit
+from watch_rag_providers import create_embedder, create_vector_store, create_chat, SearchHit
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +16,28 @@ if not config_path.is_file():
     raise FileNotFoundError(f"Config file not found: {config_path}")
 config.read(config_path)
 
-QDRANT_COLLECTION_NAME = config.get("VectorDB", "collection.name")
+LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
+
 QDRANT_URL = config.get("VectorDB", "qdrant.url")
 QUERY_LIMIT = config.getint("VectorDB", "query.limit")
-MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
+
+LLM_MODEL_NAME = (
+    os.getenv("LLM_MODEL_NAME", "").strip()
+    or config.get("LLM", "ollama.model.name")
+)
+VECTORDB_DB_NAME = (
+    os.getenv("VECTORDB_DB_NAME", "").strip()
+    or config.get("VectorDB", "collection.name")
+)
+VECTORDB_MODEL_NAME = (
+    os.getenv("VECTORDB_MODEL_NAME", "").strip()
+    or config.get("Model", "sentence_transformer_model.name")
+)
+
 OLLAMA_URL = config.get("LLM", "ollama.url")
-OLLAMA_MODEL_NAME = config.get("LLM", "ollama.model.name")
-LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
 S3_VECTOR_BUCKET=os.getenv("S3_VECTOR_BUCKET")
-S3_VECTOR_INDEX=os.getenv("S3_VECTOR_INDEX")
 VECTOR_EMBEDDER_PROVIDER=os.getenv("VECTOR_EMBEDDER_PROVIDER")
+
 
 def get_log_level() -> int:
     raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
@@ -50,10 +61,10 @@ def configure_logging() -> None:
     )
 
 def query_in_vector_db(query_text: str, brand: str, family: str) -> list[SearchHit]:
-    vector_store = create_vector_store(S3_VECTOR_BUCKET, S3_VECTOR_INDEX, QDRANT_URL, QDRANT_COLLECTION_NAME)
+    vector_store = create_vector_store(S3_VECTOR_BUCKET, QDRANT_URL, VECTORDB_DB_NAME)
     try:
         #if not vector_store.database_exists():
-        #    raise ValueError(f"Vector database '{QDRANT_COLLECTION_NAME}' does not exist. Please create it first.")
+        #    raise ValueError(f"Vector database '{VECTORDB_DB_NAME}' does not exist. Please create it first.")
 
         filter_dict: dict[str, Any] = {}
         if (brand != None and brand.strip() != ""):
@@ -61,7 +72,7 @@ def query_in_vector_db(query_text: str, brand: str, family: str) -> list[SearchH
         if (family != None and family.strip() != ""):
             filter.Family = family
 
-        embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, MODEL_NAME)
+        embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, VECTORDB_MODEL_NAME)
         query_vector = embedder.embed_all(query_text)
 
         result = vector_store.search(
@@ -100,19 +111,16 @@ def embed_result_in_prompt(query_text: str, result: SearchHit) -> str:
 
 
 def infer_with_llm(prompt: str) -> str:
-    client = Client(host=OLLAMA_URL)
-    response = client.chat(
-        model=OLLAMA_MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    llm_client = create_chat(VECTOR_EMBEDDER_PROVIDER, LLM_MODEL_NAME, OLLAMA_URL)
+    response = llm_client.complete(prompt=prompt)
     content = (response.message.content or "").strip()
     if content:
         return content
     thinking = getattr(response.message, "thinking", None)
     if thinking:
         return str(thinking).strip()
-    logger.error(f"Ollama model '{OLLAMA_MODEL_NAME}' returned an empty response.")
-    raise RuntimeError(f"Ollama model '{OLLAMA_MODEL_NAME}' returned an empty response.")
+    logger.error(f"Ollama model '{LLM_MODEL_NAME}' returned an empty response.")
+    raise RuntimeError(f"Ollama model '{LLM_MODEL_NAME}' returned an empty response.")
 
 
 def rag_query(query_text: str, brand: str, family: str) -> str:

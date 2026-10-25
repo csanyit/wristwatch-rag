@@ -27,6 +27,8 @@ docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
 Both packages read settings from a common properties file. That file sets the Qdrant URL, collection name, insert batch size, query limit, and sentence-transformer model.
 
+The collection name defaults to `VectorDB.collection.name` in `src/watch_rag.properties`. Set `VECTORDB_DB_NAME` to override it for both the builder and query commands; an unset or blank value falls back to the properties file. The embedding model defaults to `Model.sentence_transformer_model.name`; set `VECTORDB_MODEL_NAME` to override it for both commands (use the same model when building and querying). The Ollama model name defaults to `LLM.ollama.model.name`; set `LLM_MODEL_NAME` to override it for query commands. For Lambda deployments, configure the relevant environment variables on the Lambda function to override these settings.
+
 ## Deploy Lambda code
 
 The `Deploy wristwatch RAG code` GitHub Actions workflow packages the selected function from `src/` together with `src/watch_rag.properties`, then uploads it to `s3://<LAMBDA_CODE_BUCKET>/<lambda_name>/<lambda_name>.zip`. Configure the `AWS_ROLE_ARN` and `LAMBDA_CODE_BUCKET` secrets in the selected GitHub Actions environment. The deployment role must allow uploading objects to that bucket.

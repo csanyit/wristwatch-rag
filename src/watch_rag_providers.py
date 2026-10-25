@@ -83,7 +83,10 @@ class OllamaChat(ChatModel):
         self._client, self._model = Client(host=url), model
 
     def complete(self, prompt: str) -> str:
-        response = self._client.chat(model=self._model, messages=[{"role": "user", "content": prompt}])
+        response = self._client.chat(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}]
+        )
         content = (response.message.content or "").strip()
         if not content:
             raise RuntimeError(f"Ollama model '{self._model}' returned an empty response.")
@@ -228,14 +231,14 @@ def create_embedder(provider: str, model: str) -> Embedder:
     return SentenceTransformerEmbedder(model)
 
 
-def create_chat(provider: str, model: str) -> ChatModel:
+def create_chat(provider: str, model: str, ollama_url: str | None) -> ChatModel:
     if provider == "bedrock":
         return BedrockChat(model, os.getenv("AWS_REGION"))
-    return OllamaChat(os.getenv("OLLAMA_URL", "http://localhost:11434").strp(), model)
+    return OllamaChat(ollama_url.strip(), model)
 
-def create_vector_store(bucket: str | None = None, index: str | None = None, url: str | None = None, collection: str | None = None) -> VectorStore:
-    if bucket != None and index != None:
-        return S3VectorsStore(bucket=bucket, index=index, region=os.getenv("AWS_REGION"))
+def create_vector_store(bucket: str | None = None, url: str | None = None, collection: str | None = None) -> VectorStore:
+    if bucket != None and collection != None:
+        return S3VectorsStore(bucket=bucket, index=collection, region=os.getenv("AWS_REGION"))
     elif url != None and collection != None:
         return QdrantVectorStore(url, collection)
     else:

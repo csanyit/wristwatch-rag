@@ -18,12 +18,20 @@ if not config_path.is_file():
 config.read(config_path)
 
 LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
-BATCH_SIZE = config.getint("VectorDB", "collection.insert.batch.size")
-QDRANT_COLLECTION_NAME = config.get("VectorDB", "collection.name")
+
 QDRANT_URL = config.get("VectorDB", "qdrant.url")
-MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
+BATCH_SIZE = config.getint("VectorDB", "collection.insert.batch.size")
+
+VECTORDB_DB_NAME = (
+    os.getenv("VECTORDB_DB_NAME", "").strip()
+    or config.get("VectorDB", "collection.name")
+)
+VECTORDB_MODEL_NAME = (
+    os.getenv("VECTORDB_MODEL_NAME", "").strip()
+    or config.get("Model", "sentence_transformer_model.name")
+)
+
 S3_VECTOR_BUCKET=os.getenv("S3_VECTOR_BUCKET")
-S3_VECTOR_INDEX=os.getenv("S3_VECTOR_INDEX")
 VECTOR_EMBEDDER_PROVIDER=os.getenv("VECTOR_EMBEDDER_PROVIDER", "")
 
 def get_log_level() -> int:
@@ -56,7 +64,7 @@ def get_dataframe(csv_path: str) -> pd.DataFrame:
     return data_frame
 
 def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
-    embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, MODEL_NAME)
+    embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, VECTORDB_MODEL_NAME)
     def create_text_representation(row):
             return (
                 f"Brand: {row['Brand']}, Family: {row['Family']}, Name: {row['Name']}, "
@@ -72,7 +80,7 @@ def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
     return embedder.embed_all(watch_specifications)
 
 def build_vector_db(csv_path: str) -> int:
-    vector_store = create_vector_store(S3_VECTOR_BUCKET, S3_VECTOR_INDEX, QDRANT_URL, QDRANT_COLLECTION_NAME)
+    vector_store = create_vector_store(S3_VECTOR_BUCKET, QDRANT_URL, VECTORDB_DB_NAME)
     try:
         logger.info(f"Vector store connection is ready")
 
@@ -80,12 +88,12 @@ def build_vector_db(csv_path: str) -> int:
         data_frame = get_dataframe(csv_path)
         logger.info(f"Loaded {len(data_frame)} watch specifications. Creating vector representations...")
         vectors = create_vectors(data_frame)
-        logger.info(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
+        logger.info(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{VECTORDB_DB_NAME}'...")
 
-        logger.info(f"Creating collection '{QDRANT_COLLECTION_NAME}' in Qdrant...")
+        logger.info(f"Creating collection '{VECTORDB_DB_NAME}' in Qdrant...")
         vector_store.prepare_database(vectors.shape[1])
 
-        logger.info(f"Storing {len(vectors)} vectors in Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
+        logger.info(f"Storing {len(vectors)} vectors in Qdrant collection '{VECTORDB_DB_NAME}'...")
         points: list[VectorPayload] = []
         for vector_idx, (idx, row) in enumerate(data_frame.iterrows()):
             points.append(
@@ -96,9 +104,9 @@ def build_vector_db(csv_path: str) -> int:
                 )
             )
 
-        logger.info(f"Upserting {len(points)} points into Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
+        logger.info(f"Upserting {len(points)} points into Qdrant collection '{VECTORDB_DB_NAME}'...")
         total_points = vector_store.store(points, BATCH_SIZE)
-        logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{QDRANT_COLLECTION_NAME}'.")
+        logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{VECTORDB_DB_NAME}'.")
         return total_points
     finally:
         vector_store.close()
