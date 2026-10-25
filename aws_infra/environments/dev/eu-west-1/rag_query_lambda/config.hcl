@@ -4,7 +4,7 @@ locals {
   name = "rag_query-${local.environment}"
 
   artifact = {
-    s3_key    = "rag_query/rag_query.zip"
+    s3_key    = "rag_query_lambda/rag_query_lambda.zip"
     runtime   = "python3.12"
     handler   = "rag_query.lambda_handler.handler"
   }

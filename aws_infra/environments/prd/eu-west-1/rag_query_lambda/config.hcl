@@ -4,9 +4,9 @@ locals {
   name = "rag_query-${local.environment}"
 
   artifact = {
-    s3_key    = "vector_db_builder/vector_db_builder.zip"
+    s3_key    = "rag_query_lambda/rag_query_lambda.zip"
     runtime   = "python3.12"
-    handler   = "vector_db_builder.lambda_handler.handler"
+    handler   = "rag_query.lambda_handler.handler"
   }
 
   execution = {

@@ -4,7 +4,7 @@ locals {
   name = "vector_db_builder-${local.environment}"
 
   artifact = {
-    s3_key    = "vector_db_builder/vector_db_builder.zip"
+    s3_key    = "vector_db_builder_lambda/vector_db_builder_lambda.zip"
     runtime   = "python3.12"
     handler   = "vector_db_builder.lambda_handler.handler"
   }
