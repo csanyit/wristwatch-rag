@@ -39,6 +39,18 @@ dependency "specification_bucket" {
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
 
+dependency "vector_db_bucket" {
+  config_path = "../vector_db_bucket"
+
+  mock_outputs = {
+    vector_bucket_name = "mock-vector-bucket"
+    vector_index_arns = {
+      "watch-rag-db" = "arn:aws:s3vectors:eu-west-1:000000000000:bucket/mock-bucket/index/watch-rag-db"
+    }
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
+}
+
 inputs = {
   name        = local.config.name
   description = "Builds the watch vector database from CSV files in S3"
@@ -59,7 +71,10 @@ inputs = {
   execution_config = local.config.execution
 
   environment_variables = {
-    WATCH_RAG_LOG_LEVEL = local.config.log_level
+    WATCH_RAG_LOG_LEVEL      = local.config.log_level
+    S3_VECTOR_BUCKET         = dependency.vector_db_bucket.outputs.vector_bucket_name
+    VECTOR_EMBEDDER_PROVIDER = "bedrock"
+    VECTORDB_MODEL_NAME      = "mistral.mistral-7b-instruct-v0:2"
   }
 
   create_kms_key                         = false
@@ -70,6 +85,15 @@ inputs = {
       actions = ["s3:GetObject"]
       resources = [
         "${dependency.specification_bucket.outputs.content_bucket.arn}/*",
+      ]
+    }
+    manage_vectors = {
+      actions = [
+        "s3vectors:PutVectors",
+        "s3vectors:DeleteVectors",
+      ]
+      resources = [
+        dependency.vector_db_bucket.outputs.vector_index_arns["watch-rag-db"],
       ]
     }
   }

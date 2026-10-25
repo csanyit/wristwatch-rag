@@ -36,6 +36,9 @@ class VectorPayload:
 
 class VectorStore(ABC):
     @abstractmethod
+    def check_database() -> bool: ...
+
+    @abstractmethod
     def prepare_database(size: Any) -> None: ...
 
     @abstractmethod
@@ -114,6 +117,9 @@ class QdrantVectorStore(VectorStore):
         self._collection = collection
         self._logger = logging.getLogger(__name__)
 
+    def check_database(self) -> bool:
+        return self._client.collection_exists(collection_name=self._collection)
+
     def close(self):
         self._client.close()
 
@@ -181,11 +187,21 @@ class S3VectorsStore(VectorStore):
         self._bucket, self._index = bucket, index
         self._logger = logging.getLogger(__name__)
 
+    def check_database(self) -> bool:
+        try:
+            self._client.get_index(
+                vectorBucketName=self._bucket,
+                indexName=self._index,
+            )
+        except self._client.exceptions.NotFoundException:
+            return False
+        return True
+
     def close(self):
         pass
 
     def prepare_database(self, size: Any) -> bool:
-        pass
+        return True
 
     def store(self, vector_payload_data: list[VectorPayload], batch_size: int) -> int:
         total_vectors = len(vector_payload_data)
