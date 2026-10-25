@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 ENVIRONMENT_DIRECTORIES = {"dev": "dev", "prod": "prd"}
+REGION_DIRECTORIES = {"eu-west-1": "eu-west-1"}
 MODULES = (
     "lambda_code_bucket",
     "rag_query_lambda",
@@ -26,12 +27,16 @@ def main() -> int:
     parser.add_argument(
         "--environment", choices=ENVIRONMENT_DIRECTORIES, required=True
     )
+    parser.add_argument(
+            "--region", choices=REGION_DIRECTORIES, required=True
+        )
     parser.add_argument("--module", choices=MODULES, required=True)
     args = parser.parse_args()
 
     directory = (
         Path("aws_infra/environments")
         / ENVIRONMENT_DIRECTORIES[args.environment]
+        / REGION_DIRECTORIES[args.region]
         / args.module
     )
     config = directory / "terragrunt.hcl"

@@ -1,5 +1,5 @@
 name: Deploy wristwatch RAG infrastructure
-run-name: run ${{ inputs.action }} on ${{ inputs.environment }}/${{ inputs.module }} by @${{ github.actor }}
+run-name: run ${{ inputs.action }} on ${{ inputs.environment }}/${{ inputs.region }}/${{ inputs.module }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
@@ -20,6 +20,12 @@ on:
         options:
           - dev
           - prod
+      region:
+        description: Deployment region
+        required: true
+        type: choice
+        options:
+          - eu-west-1
       module:
         description: Terragrunt module
         required: true
@@ -36,7 +42,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Terragrunt ${{ inputs.action }} (${{ inputs.environment }}/${{ inputs.module }})
+    name: Terragrunt ${{ inputs.action }} (${{ inputs.environment }}/${{ inputs.region }}/${{ inputs.module }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     defaults:
@@ -51,11 +57,13 @@ jobs:
         env:
           INPUT_ACTION: ${{ inputs.action }}
           INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_REGION: ${{ inputs.region }}
           INPUT_MODULE: ${{ inputs.module }}
         run: |
           python3 .github/scripts/deploy-selection-validation.py \
             --action "$INPUT_ACTION" \
             --environment "$INPUT_ENVIRONMENT" \
+            --region "$INPUT_REGION" \
             --module "$INPUT_MODULE"
 
       - name: Install Terraform
