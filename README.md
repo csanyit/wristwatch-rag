@@ -27,6 +27,10 @@ docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
 Both packages read settings from a common properties file. That file sets the Qdrant URL, collection name, insert batch size, query limit, and sentence-transformer model.
 
+## Deploy Lambda code
+
+The `Deploy wristwatch RAG code` GitHub Actions workflow packages the selected function from `src/` together with `src/watch_rag.properties`, then uploads it to `s3://<LAMBDA_CODE_BUCKET>/<lambda_name>/<lambda_name>.zip`. Configure the `AWS_ROLE_ARN` and `LAMBDA_CODE_BUCKET` secrets in the selected GitHub Actions environment. The deployment role must allow uploading objects to that bucket.
+
 The CSV must use `;` as the delimiter. Rows with an empty `Brand` are skipped. Columns used when building the text that is embedded include brand, family, name, reference, movement, case, dial, glass, and description.
 
 ## Start
