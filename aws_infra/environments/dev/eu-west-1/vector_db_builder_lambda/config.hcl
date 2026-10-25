@@ -1,13 +1,12 @@
 locals {
-  aws_region  = "eu-central-1"
   environment = "dev"
 
-  name = "rag_query-${local.environment}"
+  name = "vector_db_builder-${local.environment}"
 
   artifact = {
-    s3_key    = "rag_query/rag_query.zip"
+    s3_key    = "vector_db_builder/vector_db_builder.zip"
     runtime   = "python3.12"
-    handler   = "rag_query.lambda_handler.handler"
+    handler   = "vector_db_builder.lambda_handler.handler"
   }
 
   execution = {

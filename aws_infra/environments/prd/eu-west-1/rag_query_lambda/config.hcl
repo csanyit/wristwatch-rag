@@ -1,8 +1,7 @@
 locals {
-  aws_region  = "eu-central-1"
-  environment = "dev"
+  environment = "prd"
 
-  name = "vector_db_builder-${local.environment}"
+  name = "rag_query-${local.environment}"
 
   artifact = {
     s3_key    = "vector_db_builder/vector_db_builder.zip"

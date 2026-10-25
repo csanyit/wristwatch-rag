@@ -1,5 +1,4 @@
 locals {
-  aws_region  = "eu-central-1"
   environment = "dev"
 
   name      = "wristwatch-rag-lambda-code-${local.environment}"

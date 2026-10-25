@@ -1,5 +1,4 @@
 locals {
-  aws_region  = "eu-central-1"
   environment = "dev"
 
   name      = "watch-specification-source-data-${local.environment}"

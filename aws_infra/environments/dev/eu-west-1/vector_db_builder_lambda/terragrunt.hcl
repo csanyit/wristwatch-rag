@@ -2,22 +2,16 @@ include "root" {
   path = find_in_parent_folders("root.hcl")
 }
 
+include "provider" {
+  path = find_in_parent_folders("region.hcl")
+}
+
 locals {
   config = read_terragrunt_config("${get_terragrunt_dir()}/config.hcl").locals
 }
 
 terraform {
-  source = "${get_terragrunt_dir()}/../../../modules//lambda"
-}
-
-generate "provider" {
-  path      = "provider.tf"
-  if_exists = "overwrite_terragrunt"
-  contents  = <<-EOF
-    provider "aws" {
-      region = "${local.config.aws_region}"
-    }
-  EOF
+  source = "${get_terragrunt_dir()}/../../../../modules//lambda"
 }
 
 dependency "lambda_bucket" {
@@ -80,7 +74,4 @@ inputs = {
     }
   }
 
-  tags = {
-    "project" = "wristwatch-rag"
-  }
 }

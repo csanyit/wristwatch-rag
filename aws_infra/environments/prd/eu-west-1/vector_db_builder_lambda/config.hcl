@@ -1,5 +1,4 @@
 locals {
-  aws_region  = "eu-central-1"
   environment = "prd"
 
   name = "vector_db_builder-${local.environment}"

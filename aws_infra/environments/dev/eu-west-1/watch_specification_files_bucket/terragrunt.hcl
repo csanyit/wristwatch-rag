@@ -1,5 +1,9 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  path   = find_in_parent_folders("root.hcl")
+}
+
+include "provider" {
+  path = find_in_parent_folders("region.hcl")
 }
 
 locals {
@@ -7,17 +11,7 @@ locals {
 }
 
 terraform {
-  source = "${get_terragrunt_dir()}/../../../modules//s3"
-}
-
-generate "provider" {
-  path      = "provider.tf"
-  if_exists = "overwrite_terragrunt"
-  contents  = <<-EOF
-    provider "aws" {
-      region = "${local.config.aws_region}"
-    }
-  EOF
+  source = "${get_terragrunt_dir()}/../../../../modules//s3"
 }
 
 inputs = {
@@ -32,7 +26,4 @@ inputs = {
 
   identity_based_policies_creatable = local.config.identity_based_policies_creatable
 
-  tags = {
-    "project" = "wristwatch-rag"
-  }
 }
