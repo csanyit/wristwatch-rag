@@ -107,7 +107,7 @@ variable "destination_maximum_retry_attempts" {
 # -------------------------------------------------------------------
 variable "create_kms_key" {
   type        = bool
-  description = "Create module-owned KMS keys. Set to false when supplying kms_key_arn from another resource."
+  description = "Create a module-owned KMS key. Set to false to use AWS-managed encryption, or provide kms_key_arn to use an external customer-managed key."
   default     = false
 }
 
@@ -124,10 +124,6 @@ variable "kms_key_arn" {
     error_message = "The kms_key_arn value must be null, a valid KMS key ARN, or a valid KMS alias name beginning with `alias/`."
   }
 
-  validation {
-    condition     = var.create_kms_key || var.kms_key_arn != null
-    error_message = "The kms_key_arn value must be provided when create_kms_keys is false."
-  }
 }
 
 # -------------------------------------------------------------------

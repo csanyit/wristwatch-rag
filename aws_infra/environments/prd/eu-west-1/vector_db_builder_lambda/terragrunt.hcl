@@ -57,7 +57,7 @@ inputs = {
     WATCH_RAG_LOG_LEVEL = local.config.log_level
   }
 
-  create_kms_key                         = true
+  create_kms_key                         = false
   cloudwatch_log_group_retention_in_days = local.config.log_group_retention_in_days
 
   additional_inline_statements = {

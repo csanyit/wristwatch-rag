@@ -41,7 +41,7 @@ inputs = {
       dependency.lambda_bucket.outputs.content_bucket.s3_object_version,
       null,
     )
-    layers        = []
+    layers = []
   }
 
   execution_config = local.config.execution
@@ -50,7 +50,7 @@ inputs = {
     WATCH_RAG_LOG_LEVEL = local.config.log_level
   }
 
-  create_kms_key                         = true
+  create_kms_key                         = false
   cloudwatch_log_group_retention_in_days = local.config.log_group_retention_in_days
 
 }
