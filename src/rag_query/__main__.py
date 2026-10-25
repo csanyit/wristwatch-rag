@@ -112,15 +112,11 @@ def embed_result_in_prompt(query_text: str, result: SearchHit) -> str:
 
 def infer_with_llm(prompt: str) -> str:
     llm_client = create_chat(VECTOR_EMBEDDER_PROVIDER, LLM_MODEL_NAME, OLLAMA_URL)
-    response = llm_client.complete(prompt=prompt)
-    content = (response.message.content or "").strip()
+    content = llm_client.complete(prompt=prompt)
     if content:
         return content
-    thinking = getattr(response.message, "thinking", None)
-    if thinking:
-        return str(thinking).strip()
-    logger.error(f"Ollama model '{LLM_MODEL_NAME}' returned an empty response.")
-    raise RuntimeError(f"Ollama model '{LLM_MODEL_NAME}' returned an empty response.")
+    logger.error(f"LLM model '{LLM_MODEL_NAME}' returned an empty response.")
+    raise RuntimeError(f"LLM model '{LLM_MODEL_NAME}' returned an empty response.")
 
 
 def rag_query(query_text: str, brand: str, family: str) -> str:
