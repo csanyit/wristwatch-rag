@@ -9,6 +9,7 @@ description = "A Python project using Qdrant for vector search."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "boto3>=1.43.0",
     "ollama>=0.4.0",
     "pandas<=3.1.0",
     "qdrant-client>=1.9.0",
@@ -17,6 +18,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools]
+py-modules = ["watch_rag_providers"]
 
 [tool.setuptools.package-data]
 watch_rag = ["*.properties"]

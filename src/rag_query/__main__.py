@@ -6,8 +6,8 @@ import sys
 
 from ollama import Client
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient, models
+
+from watch_rag_providers import create_embedder, create_vector_store, SearchHit
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +17,16 @@ if not config_path.is_file():
     raise FileNotFoundError(f"Config file not found: {config_path}")
 config.read(config_path)
 
-COLLECTION_NAME = config.get("VectorDB", "collection.name")
+QDRANT_COLLECTION_NAME = config.get("VectorDB", "collection.name")
 QDRANT_URL = config.get("VectorDB", "qdrant.url")
 QUERY_LIMIT = config.getint("VectorDB", "query.limit")
 MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
 OLLAMA_URL = config.get("LLM", "ollama.url")
 OLLAMA_MODEL_NAME = config.get("LLM", "ollama.model.name")
 LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
-
+S3_VECTOR_BUCKET=os.getenv("S3_VECTOR_BUCKET")
+S3_VECTOR_INDEX=os.getenv("S3_VECTOR_INDEX")
+VECTOR_EMBEDDER_PROVIDER=os.getenv("VECTOR_EMBEDDER_PROVIDER")
 
 def get_log_level() -> int:
     raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
@@ -47,55 +49,43 @@ def configure_logging() -> None:
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
 
-def query_in_vector_db(query_text: str, brand: str, family: str) -> list[models.ScoredPoint]:
-    client = QdrantClient(url=QDRANT_URL)
+def query_in_vector_db(query_text: str, brand: str, family: str) -> list[SearchHit]:
+    vector_store = create_vector_store(S3_VECTOR_BUCKET, S3_VECTOR_INDEX, QDRANT_URL, QDRANT_COLLECTION_NAME)
     try:
-        if not client.collection_exists(collection_name=COLLECTION_NAME):
-            raise ValueError(f"Collection '{COLLECTION_NAME}' does not exist in Qdrant. Please create it first.")
+        #if not vector_store.database_exists():
+        #    raise ValueError(f"Vector database '{QDRANT_COLLECTION_NAME}' does not exist. Please create it first.")
 
-        query_must_conditions = []
+        filter_dict: dict[str, Any] = {}
         if (brand != None and brand.strip() != ""):
-            query_must_conditions.append(
-                models.FieldCondition(
-                    key="Brand",
-                    match=models.MatchValue(value=brand)
-                )
-            )
+            filter.Brand = brand
         if (family != None and family.strip() != ""):
-            query_must_conditions.append(
-                models.FieldCondition(
-                    key="Family",
-                    match=models.MatchValue(value=family)
-                )
-            )
+            filter.Family = family
 
-        encoder = SentenceTransformer(MODEL_NAME)
-        query_vector = encoder.encode(query_text).tolist()
+        embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, MODEL_NAME)
+        query_vector = embedder.embed_all(query_text)
 
-        result = client.query_points(
-            collection_name=COLLECTION_NAME,
-            query=query_vector,
-            query_filter=models.Filter(must=query_must_conditions),
-            with_payload=True,
-            with_vectors=False,
+        result = vector_store.search(
+            vector=query_vector,
+            filters=filter_dict,
             limit=QUERY_LIMIT
         )
-        return result.points
+
+        return result
     finally:
-        client.close()
+        vector_store.close()
 
 
-def embed_result_in_prompt(query_text: str, result: models.ScoredPoint) -> str:
+def embed_result_in_prompt(query_text: str, result: SearchHit) -> str:
     context = "\n\n".join(
         (
-            f"- Brand: {p.payload.get('Brand')}\n- Family: {p.payload.get('Family')}"
-            f"- Name: {p.payload.get('Name')}\n- Reference: {p.payload.get('Reference')}"
-            f"- Movement: {p.payload.get('Movement')}\n- Complications: {p.payload.get('Movement_Functions')}"
-            f"- Material: {p.payload.get('Case Material')}\n- Glass: {p.payload.get('Glass')}"
-            f"- Back: {p.payload.get('Back')}\n- Shape: {p.payload.get('Shape')}"
-            f"- Diameter: {p.payload.get('Diameter')}\n- Height: {p.payload.get('Height')}"
-            f"- W/R: {p.payload.get('W/R')}\n- Dial Color: {p.payload.get('Dial Color')} "
-            f"- Hands: {p.payload.get('Hands')}\n- Description: {p.payload.get('Description')}"
+            f"- Brand: {p.metadata.get('Brand')}\n- Family: {p.metadata.get('Family')}"
+            f"- Name: {p.metadata.get('Name')}\n- Reference: {p.metadata.get('Reference')}"
+            f"- Movement: {p.metadata.get('Movement')}\n- Complications: {p.metadata.get('Movement_Functions')}"
+            f"- Material: {p.metadata.get('Case Material')}\n- Glass: {p.metadata.get('Glass')}"
+            f"- Back: {p.metadata.get('Back')}\n- Shape: {p.metadata.get('Shape')}"
+            f"- Diameter: {p.metadata.get('Diameter')}\n- Height: {p.metadata.get('Height')}"
+            f"- W/R: {p.metadata.get('W/R')}\n- Dial Color: {p.metadata.get('Dial Color')} "
+            f"- Hands: {p.metadata.get('Hands')}\n- Description: {p.metadata.get('Description')}"
         )
         for p in result
     )
@@ -128,8 +118,8 @@ def infer_with_llm(prompt: str) -> str:
 def rag_query(query_text: str, brand: str, family: str) -> str:
     vector_db_results = query_in_vector_db(query_text, brand, family)
 
-    for point in vector_db_results:
-        logger.debug(f"Brand: {point.payload.get('Brand')}, Family: {point.payload.get('Family')}, Name: {point.payload.get('Name')}, Reference: {point.payload.get('Reference')}")
+    for search_hit in vector_db_results:
+        logger.debug(f"Brand: {search_hit.metadata.get('Brand')}, Family: {search_hit.metadata.get('Family')}, Name: {search_hit.metadata.get('Name')}, Reference: {search_hit.metadata.get('Reference')}")
 
     rag_prompt = embed_result_in_prompt(query_text, vector_db_results)
     logger.debug(f"RAG Prompt:\n{rag_prompt}\n")

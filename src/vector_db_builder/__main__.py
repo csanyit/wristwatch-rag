@@ -7,8 +7,7 @@ import sys
 import pandas as pd
 
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient, models
+from watch_rag_providers import create_embedder, create_vector_store, VectorPayload
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +17,14 @@ if not config_path.is_file():
     raise FileNotFoundError(f"Config file not found: {config_path}")
 config.read(config_path)
 
+LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
 BATCH_SIZE = config.getint("VectorDB", "collection.insert.batch.size")
-COLLECTION_NAME = config.get("VectorDB", "collection.name")
+QDRANT_COLLECTION_NAME = config.get("VectorDB", "collection.name")
 QDRANT_URL = config.get("VectorDB", "qdrant.url")
 MODEL_NAME = config.get("Model", "sentence_transformer_model.name")
-LOG_LEVEL_ENV_VAR = "WATCH_RAG_LOG_LEVEL"
-
+S3_VECTOR_BUCKET=os.getenv("S3_VECTOR_BUCKET")
+S3_VECTOR_INDEX=os.getenv("S3_VECTOR_INDEX")
+VECTOR_EMBEDDER_PROVIDER=os.getenv("VECTOR_EMBEDDER_PROVIDER", "")
 
 def get_log_level() -> int:
     raw_level = os.environ.get(LOG_LEVEL_ENV_VAR)
@@ -55,7 +56,7 @@ def get_dataframe(csv_path: str) -> pd.DataFrame:
     return data_frame
 
 def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
-    encoder = SentenceTransformer(MODEL_NAME)
+    embedder = create_embedder(VECTOR_EMBEDDER_PROVIDER, MODEL_NAME)
     def create_text_representation(row):
             return (
                 f"Brand: {row['Brand']}, Family: {row['Family']}, Name: {row['Name']}, "
@@ -68,55 +69,39 @@ def create_vectors(data_frame: pd.DataFrame) -> list[list[float]]:
                 f"Information: {row['Description']}. "
             )
     watch_specifications = data_frame.apply(create_text_representation, axis=1).tolist()
-    return encoder.encode(watch_specifications, show_progress_bar=True)
+    return embedder.embed_all(watch_specifications)
 
 def build_vector_db(csv_path: str) -> int:
-    client = QdrantClient(url=QDRANT_URL)
+    vector_store = create_vector_store(S3_VECTOR_BUCKET, S3_VECTOR_INDEX, QDRANT_URL, QDRANT_COLLECTION_NAME)
     try:
-        logger.info(f"Qdrant is ready (collections: {len(client.get_collections().collections)}).")
+        logger.info(f"Vector store connection is ready")
 
         logger.info(f"Loading watch data from CSV file: {csv_path}")
         data_frame = get_dataframe(csv_path)
         logger.info(f"Loaded {len(data_frame)} watch specifications. Creating vector representations...")
         vectors = create_vectors(data_frame)
-        logger.info(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{COLLECTION_NAME}'...")
+        logger.info(f"Created {len(vectors)} vector representations. Storing them in Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
 
+        logger.info(f"Creating collection '{QDRANT_COLLECTION_NAME}' in Qdrant...")
+        vector_store.prepare_database(vectors.shape[1])
 
-        logger.info(f"Creating collection '{COLLECTION_NAME}' in Qdrant...")
-        if client.collection_exists(collection_name=COLLECTION_NAME):
-            client.delete_collection(collection_name=COLLECTION_NAME)
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=models.VectorParams(size=vectors.shape[1], distance=models.Distance.COSINE),
-        )
-
-
-        logger.info(f"Storing {len(vectors)} vectors in Qdrant collection '{COLLECTION_NAME}'...")
-        points = []
+        logger.info(f"Storing {len(vectors)} vectors in Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
+        points: list[VectorPayload] = []
         for vector_idx, (idx, row) in enumerate(data_frame.iterrows()):
-            payload = row.to_dict()
             points.append(
-                models.PointStruct(
+                VectorPayload(
                     id=idx,
                     vector=vectors[vector_idx].tolist(),
-                    payload=payload
+                    payload=row.to_dict()
                 )
             )
 
-        logger.info(f"Upserting {len(points)} points into Qdrant collection '{COLLECTION_NAME}'...")
-        total_points = len(points)
-
-        for i in range(0, total_points, BATCH_SIZE):
-            batch = points[i:i + BATCH_SIZE]
-            logger.debug(f"Upserting batch {i // BATCH_SIZE + 1} of {((total_points - 1) // BATCH_SIZE) + 1} (size: {len(batch)})...")
-            client.upsert(
-                collection_name=COLLECTION_NAME,
-                points=batch
-            )
-        logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{COLLECTION_NAME}'.")
+        logger.info(f"Upserting {len(points)} points into Qdrant collection '{QDRANT_COLLECTION_NAME}'...")
+        total_points = vector_store.store(points, BATCH_SIZE)
+        logger.info(f"Successfully stored {len(points)} points in Qdrant collection '{QDRANT_COLLECTION_NAME}'.")
         return total_points
     finally:
-        client.close()
+        vector_store.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load watch data from a CSV file.")
