@@ -24,6 +24,14 @@ on:
         options:
           - rag_query_lambda
           - vector_db_builder_lambda
+      dependency_profile:
+        description: Dependency profile for the selected Lambda
+        required: true
+        type: choice
+        default: lambda-builder-bedrock
+        options:
+          - lambda-builder-bedrock
+          - lambda-builder-self-hosted
 
 permissions:
   contents: read
@@ -53,6 +61,21 @@ jobs:
             --region "$INPUT_REGION" \
             --lambda_name "$INPUT_LAMBDA_NAME"
 
+      - name: Install Lambda dependencies
+        env:
+          DEPENDENCY_PROFILE: ${{ inputs.dependency_profile }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+
+          python3 -m pip install \
+            --only-binary=:all: \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version 3.12 \
+            --target package \
+            ".[${DEPENDENCY_PROFILE}]"
+
       - name: Create Lambda zip package
         env:
           LAMBDA_NAME: ${{ inputs.lambda_name }}
@@ -62,11 +85,16 @@ jobs:
           package_name="${LAMBDA_NAME%_lambda}"
           package_path="$RUNNER_TEMP/$LAMBDA_NAME.zip"
           test -d "$SOURCE_DIRECTORY"
+
+          cp src/watch_rag.properties package/
+
           (
-            cd src
-            zip -r "$package_path" "$package_name" watch_rag.properties
+            cd package
+            zip -r "$package_path" .
           )
           test -s "$package_path"
+
+          unzip -l "$package_path" | grep -q 'pandas/'
 
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4

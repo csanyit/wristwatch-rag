@@ -2586,19 +2586,26 @@ name = "watch-rag"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "boto3" },
-    { name = "ollama" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
+[package.optional-dependencies]
+lambda-builder-bedrock = [
+    { name = "boto3" },
+]
+lambda-builder-self-hosted = [
+    { name = "ollama" },
     { name = "qdrant-client" },
     { name = "sentence-transformers" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "boto3", specifier = ">=1.43.0" },
-    { name = "ollama", specifier = ">=0.4.0" },
+    { name = "boto3", marker = "extra == 'lambda-builder-bedrock'", specifier = ">=1.43.0" },
+    { name = "ollama", marker = "extra == 'lambda-builder-self-hosted'", specifier = ">=0.4.0" },
     { name = "pandas", specifier = "<=3.1.0" },
-    { name = "qdrant-client", specifier = ">=1.9.0" },
-    { name = "sentence-transformers", specifier = ">=6.2.0" },
+    { name = "qdrant-client", marker = "extra == 'lambda-builder-self-hosted'", specifier = ">=1.9.0" },
+    { name = "sentence-transformers", marker = "extra == 'lambda-builder-self-hosted'", specifier = ">=6.2.0" },
 ]
+provides-extras = ["lambda-builder-bedrock", "lambda-builder-self-hosted"]

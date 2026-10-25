@@ -11,12 +11,16 @@ The project has two packages:
 
 Python 3.10 or newer is required. Qdrant must be reachable at the URL in the properties file (default: `http://localhost:6333`).
 
-Create and activate a virtual environment, then install the project:
+Using `uv`, install the dependencies for the local self-hosted setup:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
+uv sync --extra lambda-builder-self-hosted
+```
+
+This installs the Ollama, Qdrant, and Sentence Transformers dependencies needed by the local `__main__.py` commands. For a Bedrock-based environment, use instead:
+
+```bash
+uv sync --extra lambda-builder-bedrock
 ```
 
 Start Qdrant if it is not already running, for example:
