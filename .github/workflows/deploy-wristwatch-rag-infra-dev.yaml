@@ -1,4 +1,5 @@
 name: Deploy wristwatch RAG infrastructure
+run-name: run ${{ inputs.action }} on ${{ inputs.environment }}/${{ inputs.module }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:

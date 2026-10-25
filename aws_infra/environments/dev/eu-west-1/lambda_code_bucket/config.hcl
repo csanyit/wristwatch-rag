@@ -2,7 +2,7 @@ locals {
   environment = "dev"
 
   name      = "wristwatch-rag-lambda-code-${local.environment}"
-  namespace = "global"
+  namespace = "account-regional"
 
   force_destroy      = false
   versioning_enabled = true
@@ -12,5 +12,5 @@ locals {
     kms_master_key_id = null
   }
 
-  identity_based_policies_creatable = false
+  identity_based_policies_creatable = true
 }
