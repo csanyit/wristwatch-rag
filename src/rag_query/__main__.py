@@ -63,8 +63,8 @@ def configure_logging() -> None:
 def query_in_vector_db(query_text: str, brand: str, family: str) -> list[SearchHit]:
     vector_store = create_vector_store(S3_VECTOR_BUCKET, QDRANT_URL, VECTORDB_DB_NAME)
     try:
-        #if not vector_store.database_exists():
-        #    raise ValueError(f"Vector database '{VECTORDB_DB_NAME}' does not exist. Please create it first.")
+        if not vector_store.check_database():
+            raise ValueError(f"Vector database '{VECTORDB_DB_NAME}' does not exist. Please create it first.")
 
         filter_dict: dict[str, Any] = {}
         if (brand != None and brand.strip() != ""):

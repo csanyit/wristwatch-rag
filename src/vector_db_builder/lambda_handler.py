@@ -6,7 +6,7 @@ from urllib.parse import unquote_plus
 
 import boto3
 
-from vector_db_builder.__main__ import COLLECTION_NAME, build_vector_db, get_log_level
+from vector_db_builder.__main__ import VECTORDB_DB_NAME, build_vector_db, get_log_level
 
 logger = logging.getLogger(__name__)
 
@@ -40,4 +40,4 @@ def handler(event: dict, context) -> dict:
             s3_client.download_file(bucket, key, str(csv_path))
             stored_points = build_vector_db(str(csv_path))
 
-    return {"collection": COLLECTION_NAME, "points": stored_points}
+    return {"collection": VECTORDB_DB_NAME, "points": stored_points}
