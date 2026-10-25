@@ -24,7 +24,7 @@ data "aws_iam_policy_document" "lambda_inline_policy" {
   statement {
     sid       = "LambdaLog"
     effect    = "Allow"
-    resources = ["arn:aws:logs:vars.region:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.lambda_function_name}:*"]
+    resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.lambda_function_name}:*"]
 
     actions = [
       "logs:CreateLogStream",
@@ -134,13 +134,13 @@ data "aws_iam_policy_document" "lambda_key_policy" {
       test     = "StringEquals"
       variable = "kms:ViaService"
       values = [
-        "logs.vars.region.amazonaws.com",
-        "s3.vars.region.amazonaws.com",
-        "lambda.vars.region.amazonaws.com",
-        "secretsmanager.vars.region.amazonaws.com",
-        "sns.vars.region.amazonaws.com",
-        "sqs.vars.region.amazonaws.com",
-        "kinesis.vars.region.amazonaws.com"
+        "logs.${data.aws_region.current.region}.amazonaws.com",
+        "s3.${data.aws_region.current.region}.amazonaws.com",
+        "lambda.${data.aws_region.current.region}.amazonaws.com",
+        "secretsmanager.${data.aws_region.current.region}.amazonaws.com",
+        "sns.${data.aws_region.current.region}.amazonaws.com",
+        "sqs.${data.aws_region.current.region}.amazonaws.com",
+        "kinesis.${data.aws_region.current.region}.amazonaws.com"
       ]
     }
   }
@@ -153,7 +153,7 @@ data "aws_iam_policy_document" "lambda_key_policy" {
     principals {
       type = "Service"
       identifiers = [
-        "logs.vars.region.amazonaws.com"
+        "logs.${data.aws_region.current.region}.amazonaws.com"
       ]
     }
 
@@ -169,7 +169,7 @@ data "aws_iam_policy_document" "lambda_key_policy" {
       test     = "ArnEquals"
       variable = "kms:EncryptionContext:aws:logs:arn"
       values = [
-        "arn:aws:logs:vars.region:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.lambda_function_name}"
+        "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.lambda_function_name}"
       ]
     }
   }
